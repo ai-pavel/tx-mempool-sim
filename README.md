@@ -1,7 +1,7 @@
 # tx-mempool-simulator
 
-[![CI](https://github.com/pavel-genai/tx-mempool-simulator/actions/workflows/ci.yml/badge.svg)](https://github.com/pavel-genai/tx-mempool-simulator/actions/workflows/ci.yml)
-[![codecov](https://codecov.io/gh/pavel-genai/tx-mempool-sim/branch/main/graph/badge.svg)](https://codecov.io/gh/pavel-genai/tx-mempool-sim)
+[![CI](https://github.com/ai-pavel/tx-mempool-simulator/actions/workflows/ci.yml/badge.svg)](https://github.com/ai-pavel/tx-mempool-simulator/actions/workflows/ci.yml)
+[![codecov](https://codecov.io/gh/ai-pavel/tx-mempool-sim/branch/main/graph/badge.svg)](https://codecov.io/gh/ai-pavel/tx-mempool-sim)
 
 A blockchain transaction mempool simulator written in Go. It provides a JSON-RPC 2.0 HTTP interface for submitting transactions and querying pool state.
 
