@@ -1,10 +1,21 @@
 package mempool
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
+	"time"
+)
+
+// Default HTTP server timeouts. These bound how long a single connection may
+// tie up server resources, mitigating slow-client (Slowloris) DoS.
+const (
+	DefaultReadTimeout       = 15 * time.Second
+	DefaultReadHeaderTimeout = 5 * time.Second
+	DefaultWriteTimeout      = 15 * time.Second
+	DefaultIdleTimeout       = 60 * time.Second
 )
 
 // JSONRPCRequest represents an incoming JSON-RPC 2.0 request.
@@ -46,6 +57,7 @@ type GetPendingByAddressParams struct {
 type Server struct {
 	pool *Pool
 	mux  *http.ServeMux
+	http *http.Server
 }
 
 // NewServer creates a new JSON-RPC server backed by the given pool.
@@ -60,9 +72,29 @@ func (s *Server) Handler() http.Handler {
 	return s.mux
 }
 
-// ListenAndServe starts the HTTP server on the given address.
+// ListenAndServe starts the HTTP server on the given address using an
+// explicit http.Server configured with read/write/idle timeouts, rather than
+// the default (timeout-less) http.ListenAndServe.
 func (s *Server) ListenAndServe(addr string) error {
-	return http.ListenAndServe(addr, s.mux)
+	s.http = &http.Server{
+		Addr:              addr,
+		Handler:           s.mux,
+		ReadTimeout:       DefaultReadTimeout,
+		ReadHeaderTimeout: DefaultReadHeaderTimeout,
+		WriteTimeout:      DefaultWriteTimeout,
+		IdleTimeout:       DefaultIdleTimeout,
+	}
+	return s.http.ListenAndServe()
+}
+
+// Shutdown gracefully shuts down the underlying HTTP server, letting
+// in-flight requests finish before the deadline in ctx elapses. It is safe to
+// call before ListenAndServe (in which case it is a no-op).
+func (s *Server) Shutdown(ctx context.Context) error {
+	if s.http == nil {
+		return nil
+	}
+	return s.http.Shutdown(ctx)
 }
 
 func (s *Server) handleRPC(w http.ResponseWriter, r *http.Request) {
