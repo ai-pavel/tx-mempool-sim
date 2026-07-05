@@ -415,3 +415,29 @@ func TestPoolStatusViaRPCFields(t *testing.T) {
 		t.Errorf("expected floorGasPrice 50, got %v", result["floorGasPrice"])
 	}
 }
+
+func TestOversizedBodyRejected(t *testing.T) {
+	pool := NewPool(Config{MaxSize: 100})
+	srv := NewServer(pool)
+	srv.SetMaxBodyBytes(1024) // small cap for the test
+
+	// Build a body well over the cap.
+	big := bytes.Repeat([]byte("a"), 4096)
+	body := []byte(`{"jsonrpc":"2.0","method":"sendTransaction","id":1,"params":{"sender":"`)
+	body = append(body, big...)
+	body = append(body, []byte(`"}}`)...)
+
+	req := httptest.NewRequest(http.MethodPost, "/", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+
+	srv.Handler().ServeHTTP(w, req)
+
+	var resp JSONRPCResponse
+	if err := json.NewDecoder(w.Body).Decode(&resp); err != nil {
+		t.Fatalf("failed to decode response: %v", err)
+	}
+	if resp.Error == nil {
+		t.Fatal("expected an error for oversized body, got none")
+	}
+}

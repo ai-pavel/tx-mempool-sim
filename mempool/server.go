@@ -42,17 +42,32 @@ type GetPendingByAddressParams struct {
 	Address string `json:"address"`
 }
 
+// DefaultMaxBodyBytes is the default cap on a request body size (1 MiB).
+const DefaultMaxBodyBytes int64 = 1 << 20
+
 // Server is the JSON-RPC HTTP server for the mempool.
 type Server struct {
 	pool *Pool
 	mux  *http.ServeMux
+	// maxBodyBytes caps the size of an incoming request body to prevent
+	// unauthenticated memory-exhaustion DoS.
+	maxBodyBytes int64
 }
 
 // NewServer creates a new JSON-RPC server backed by the given pool.
 func NewServer(pool *Pool) *Server {
-	s := &Server{pool: pool, mux: http.NewServeMux()}
+	s := &Server{pool: pool, mux: http.NewServeMux(), maxBodyBytes: DefaultMaxBodyBytes}
 	s.mux.HandleFunc("/", s.handleRPC)
 	return s
+}
+
+// SetMaxBodyBytes overrides the maximum accepted request body size. A value
+// <= 0 falls back to DefaultMaxBodyBytes.
+func (s *Server) SetMaxBodyBytes(n int64) {
+	if n <= 0 {
+		n = DefaultMaxBodyBytes
+	}
+	s.maxBodyBytes = n
 }
 
 // Handler returns the http.Handler for this server.
@@ -71,12 +86,21 @@ func (s *Server) handleRPC(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Bound the request body to prevent memory-exhaustion DoS. Reading past
+	// the limit causes MaxBytesReader to return an error, which we surface as
+	// a JSON-RPC parse error rather than allocating the whole body.
+	limit := s.maxBodyBytes
+	if limit <= 0 {
+		limit = DefaultMaxBodyBytes
+	}
+	r.Body = http.MaxBytesReader(w, r.Body, limit)
+	defer r.Body.Close()
+
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
-		writeError(w, nil, -32700, "parse error")
+		writeError(w, nil, -32600, "request body too large or unreadable")
 		return
 	}
-	defer r.Body.Close()
 
 	var req JSONRPCRequest
 	if err := json.Unmarshal(body, &req); err != nil {
