@@ -171,16 +171,9 @@ func (p *Pool) Status() PoolStatus {
 		status.TopGasPrice = top.GasPrice
 	}
 
-	// Find floor gas price.
-	if p.pq.Len() > 0 {
-		all := p.pq.All()
-		minPrice := all[0].GasPrice
-		for _, tx := range all[1:] {
-			if tx.GasPrice < minPrice {
-				minPrice = tx.GasPrice
-			}
-		}
-		status.FloorGasPrice = minPrice
+	// Find floor gas price (O(1) via the min-heap).
+	if floor := p.pq.Floor(); floor != nil {
+		status.FloorGasPrice = floor.GasPrice
 	}
 
 	// Include nonce gaps in status.

@@ -19,6 +19,13 @@ type Transaction struct {
 	GasPrice  uint64 `json:"gasPrice"`
 	Size      uint64 `json:"size"`
 	Timestamp int64  `json:"timestamp"`
+
+	// maxIdx and minIdx track this transaction's position within the
+	// PriorityQueue's max-heap (priority) and min-heap (floor) respectively.
+	// They are maintained by the heaps so that O(log n) removal of an
+	// arbitrary element is possible. They are not part of the wire format.
+	maxIdx int `json:"-"`
+	minIdx int `json:"-"`
 }
 
 // NewTransaction creates a transaction and computes its hash from the content.

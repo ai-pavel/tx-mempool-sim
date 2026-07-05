@@ -460,3 +460,26 @@ func TestAddMultipleSenders(t *testing.T) {
 		t.Errorf("expected 3 senders, got %d", status.SenderCount)
 	}
 }
+
+// BenchmarkAddAtCapacity measures Pool.Add on a pool that is already at
+// capacity, so every insertion triggers an eviction (RemoveLowest). With the
+// dual-heap PriorityQueue this path is O(log n) rather than O(n).
+func BenchmarkAddAtCapacity(b *testing.B) {
+	const capacity = 5000
+	pool := NewPool(Config{MaxSize: capacity})
+
+	// Fill the pool to capacity with a spread of gas prices.
+	for i := 0; i < capacity; i++ {
+		tx := NewTransaction(fmt.Sprintf("0x%d", i), 0, uint64(i%1000)+1, 100)
+		if err := pool.Add(tx); err != nil {
+			b.Fatalf("setup add failed: %v", err)
+		}
+	}
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		// High gas price guarantees the new tx beats the floor and evicts.
+		tx := NewTransaction(fmt.Sprintf("0xbench-%d", i), 0, 2000, 100)
+		_ = pool.Add(tx)
+	}
+}
