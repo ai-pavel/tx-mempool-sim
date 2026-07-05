@@ -460,3 +460,38 @@ func TestAddMultipleSenders(t *testing.T) {
 		t.Errorf("expected 3 senders, got %d", status.SenderCount)
 	}
 }
+
+func TestEvictionDoesNotCreateNonceGap(t *testing.T) {
+	// Capacity 2. Alice's nonce-0 (cheap) and nonce-1 (also cheap) fill the pool.
+	pool := NewPool(Config{MaxSize: 2})
+	tx0 := NewTransaction("0xAlice", 0, 10, 100)
+	tx1 := NewTransaction("0xAlice", 1, 10, 100)
+	if err := pool.Add(tx0); err != nil {
+		t.Fatalf("add tx0: %v", err)
+	}
+	if err := pool.Add(tx1); err != nil {
+		t.Fatalf("add tx1: %v", err)
+	}
+
+	// A higher-priced tx from Bob forces an eviction. The cheapest candidate
+	// could be Alice's nonce-0, but evicting it would strand nonce-1. The
+	// pool should instead drop Alice's tail (nonce-1), leaving no gap.
+	bob := NewTransaction("0xBob", 0, 100, 100)
+	if err := pool.Add(bob); err != nil {
+		t.Fatalf("add bob: %v", err)
+	}
+
+	alice := pool.PendingByAddress("0xAlice")
+	found0 := false
+	for _, tx := range alice {
+		if tx.Nonce == 0 {
+			found0 = true
+		}
+	}
+	if !found0 {
+		t.Error("nonce-0 should have been retained to avoid a gap")
+	}
+	if len(pool.DetectNonceGaps()) != 0 {
+		t.Errorf("eviction created a nonce gap: %v", pool.DetectNonceGaps())
+	}
+}

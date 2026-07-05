@@ -87,6 +87,17 @@ func (pq *PriorityQueue) RemoveLowest() *Transaction {
 	return heap.Remove(&pq.h, minIdx).(*Transaction)
 }
 
+// RemoveByHash removes the transaction with the given hash from the queue,
+// returning it, or nil if it was not present.
+func (pq *PriorityQueue) RemoveByHash(hash string) *Transaction {
+	for i := 0; i < pq.h.Len(); i++ {
+		if pq.h[i].Hash == hash {
+			return heap.Remove(&pq.h, i).(*Transaction)
+		}
+	}
+	return nil
+}
+
 // All returns a copy of all transactions in the queue (unordered).
 func (pq *PriorityQueue) All() []*Transaction {
 	result := make([]*Transaction, len(pq.h))

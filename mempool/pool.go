@@ -87,9 +87,26 @@ func (p *Pool) Add(tx *Transaction) error {
 				p.pq.Push(lowest)
 				return fmt.Errorf("pool is full and transaction gas price %d does not exceed floor %d", tx.GasPrice, lowest.GasPrice)
 			}
-			// Evict the lowest.
-			delete(p.byHash, lowest.Hash)
-			p.removeSenderTx(lowest)
+
+			// Avoid manufacturing a nonce gap: if the cheapest tx has a
+			// higher-nonce sibling still in the pool, evicting it would leave
+			// an unprocessable gap. In that case evict the sender's
+			// highest-nonce tx instead (dropping the tail is gap-free) and put
+			// the cheapest tx back.
+			victim := lowest
+			if siblings := p.bySender[lowest.Sender]; len(siblings) > 1 &&
+				siblings[len(siblings)-1].Nonce > lowest.Nonce {
+				tail := siblings[len(siblings)-1]
+				if tail.Hash != lowest.Hash {
+					p.pq.Push(lowest)
+					p.pq.RemoveByHash(tail.Hash)
+					victim = tail
+				}
+			}
+
+			// Evict the chosen victim.
+			delete(p.byHash, victim.Hash)
+			p.removeSenderTx(victim)
 		}
 	}
 
