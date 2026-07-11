@@ -52,7 +52,19 @@ type Server struct {
 func NewServer(pool *Pool) *Server {
 	s := &Server{pool: pool, mux: http.NewServeMux()}
 	s.mux.HandleFunc("/", s.handleRPC)
+	s.mux.HandleFunc("/health", s.handleHealth)
 	return s
+}
+
+// handleHealth implements the fleet-wide uniform health endpoint.
+func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	io.WriteString(w, `{"status":"ok","service":"tx-mempool-simulator"}`)
 }
 
 // Handler returns the http.Handler for this server.

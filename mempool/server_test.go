@@ -32,6 +32,39 @@ func rpcCall(t *testing.T, handler http.Handler, method string, params interface
 	return resp
 }
 
+func TestHealthEndpoint(t *testing.T) {
+	pool := NewPool(Config{MaxSize: 100})
+	srv := NewServer(pool)
+
+	req := httptest.NewRequest(http.MethodGet, "/health", nil)
+	w := httptest.NewRecorder()
+	srv.Handler().ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Errorf("expected 200, got %d", w.Code)
+	}
+	if ct := w.Header().Get("Content-Type"); ct != "application/json" {
+		t.Errorf("expected Content-Type application/json, got %q", ct)
+	}
+	want := `{"status":"ok","service":"tx-mempool-simulator"}`
+	if got := w.Body.String(); got != want {
+		t.Errorf("expected body %s, got %s", want, got)
+	}
+}
+
+func TestHealthEndpointMethodNotAllowed(t *testing.T) {
+	pool := NewPool(Config{MaxSize: 100})
+	srv := NewServer(pool)
+
+	req := httptest.NewRequest(http.MethodPost, "/health", nil)
+	w := httptest.NewRecorder()
+	srv.Handler().ServeHTTP(w, req)
+
+	if w.Code != http.StatusMethodNotAllowed {
+		t.Errorf("expected 405, got %d", w.Code)
+	}
+}
+
 func TestSendTransactionRPC(t *testing.T) {
 	pool := NewPool(Config{MaxSize: 100})
 	srv := NewServer(pool)
