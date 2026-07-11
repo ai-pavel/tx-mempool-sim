@@ -141,16 +141,14 @@ func (s *Server) dispatch(req *JSONRPCRequest) JSONRPCResponse {
 	}
 }
 
-func (s *Server) handleSendTransaction(w http.ResponseWriter, req *JSONRPCRequest) {
+func (s *Server) handleSendTransaction(req *JSONRPCRequest) JSONRPCResponse {
 	var params SendTransactionParams
 	if err := json.Unmarshal(req.Params, &params); err != nil {
-		writeError(w, req.ID, -32602, "invalid params: "+err.Error())
-		return
+		return errorResponse(req.ID, -32602, "invalid params: "+err.Error())
 	}
 
 	if params.Sender == "" {
-		writeError(w, req.ID, -32602, "invalid params: sender is required")
-		return
+		return errorResponse(req.ID, -32602, "invalid params: sender is required")
 	}
 	if params.Size == 0 {
 		params.Size = 100 // default size in bytes
@@ -158,56 +156,57 @@ func (s *Server) handleSendTransaction(w http.ResponseWriter, req *JSONRPCReques
 
 	tx := NewTransaction(params.Sender, params.Nonce, params.GasPrice, params.Size)
 	if err := s.pool.Add(tx); err != nil {
-		writeError(w, req.ID, -32000, err.Error())
-		return
+		return errorResponse(req.ID, -32000, err.Error())
 	}
 
-	writeResult(w, req.ID, map[string]interface{}{
+	return resultResponse(req.ID, map[string]interface{}{
 		"hash":    tx.Hash,
 		"message": "transaction accepted",
 	})
 }
 
-func (s *Server) handleGetPoolStatus(w http.ResponseWriter, req *JSONRPCRequest) {
+func (s *Server) handleGetPoolStatus(req *JSONRPCRequest) JSONRPCResponse {
 	status := s.pool.Status()
-	writeResult(w, req.ID, status)
+	return resultResponse(req.ID, status)
 }
 
-func (s *Server) handleGetPendingByAddress(w http.ResponseWriter, req *JSONRPCRequest) {
+func (s *Server) handleGetPendingByAddress(req *JSONRPCRequest) JSONRPCResponse {
 	var params GetPendingByAddressParams
 	if err := json.Unmarshal(req.Params, &params); err != nil {
-		writeError(w, req.ID, -32602, "invalid params: "+err.Error())
-		return
+		return errorResponse(req.ID, -32602, "invalid params: "+err.Error())
 	}
 
 	if params.Address == "" {
-		writeError(w, req.ID, -32602, "invalid params: address is required")
-		return
+		return errorResponse(req.ID, -32602, "invalid params: address is required")
 	}
 
 	txs := s.pool.PendingByAddress(params.Address)
 	if txs == nil {
 		txs = []*Transaction{}
 	}
-	writeResult(w, req.ID, txs)
+	return resultResponse(req.ID, txs)
 }
 
-func writeResult(w http.ResponseWriter, id interface{}, result interface{}) {
-	resp := JSONRPCResponse{
+// resultResponse builds a successful JSON-RPC response object.
+func resultResponse(id interface{}, result interface{}) JSONRPCResponse {
+	return JSONRPCResponse{
 		JSONRPC: "2.0",
 		Result:  result,
 		ID:      id,
 	}
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(resp)
 }
 
-func writeError(w http.ResponseWriter, id interface{}, code int, message string) {
-	resp := JSONRPCResponse{
+// errorResponse builds a JSON-RPC error response object.
+func errorResponse(id interface{}, code int, message string) JSONRPCResponse {
+	return JSONRPCResponse{
 		JSONRPC: "2.0",
 		Error:   &RPCError{Code: code, Message: message},
 		ID:      id,
 	}
+}
+
+// writeJSON serializes v as JSON to the response writer.
+func writeJSON(w http.ResponseWriter, v interface{}) {
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(resp)
+	json.NewEncoder(w).Encode(v)
 }
