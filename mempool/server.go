@@ -64,7 +64,7 @@ func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {
 	}
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	io.WriteString(w, `{"status":"ok","service":"tx-mempool-simulator"}`)
+	io.WriteString(w, `{"status":"ok","service":"purgatory"}`)
 }
 
 // Handler returns the http.Handler for this server.

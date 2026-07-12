@@ -1,4 +1,4 @@
-module github.com/ai-pavel/purgatoryulator
+module github.com/ai-pavel/purgatory
 
 go 1.21
 

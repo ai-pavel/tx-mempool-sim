@@ -46,7 +46,7 @@ func TestHealthEndpoint(t *testing.T) {
 	if ct := w.Header().Get("Content-Type"); ct != "application/json" {
 		t.Errorf("expected Content-Type application/json, got %q", ct)
 	}
-	want := `{"status":"ok","service":"tx-mempool-simulator"}`
+	want := `{"status":"ok","service":"purgatory"}`
 	if got := w.Body.String(); got != want {
 		t.Errorf("expected body %s, got %s", want, got)
 	}

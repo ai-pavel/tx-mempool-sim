@@ -6,7 +6,7 @@ import (
 	"log"
 	"os"
 
-	"github.com/ai-pavel/purgatoryulator/mempool"
+	"github.com/ai-pavel/purgatory/mempool"
 )
 
 func main() {
